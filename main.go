@@ -3,5 +3,5 @@ package main
 import "fmt"
 
 func main() {
-	fmt.Println("hello there!")
+	fmt.Println("Find duplicate files by hash value")
 }
