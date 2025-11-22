@@ -9,10 +9,32 @@ package hashfile
 */
 import (
 	"crypto/sha256"
-	"fmt"
-	"hash"
+	"encoding/hex"
+	"io"
+	"os"
 )
 
+// ****
+// HashFile computes the SHA256 hash for a given file
+func HashFile(filename string) (string, error) {
+	file, err := os.Open(filename)
+	if err != nil {
+		return "", err
+	}
+	defer file.Close()
+
+	hasher := sha256.New()
+	if _, err := io.Copy(hasher, file); err != nil {
+		return "", err
+	}
+
+	hash := hasher.Sum(nil)
+
+	return hex.EncodeToString(hash), nil
+}
+
+// ****
+/* old try at implementation
 type hasher struct {
 	hash hash.Hash
 }
@@ -24,12 +46,11 @@ func newHasher() *hasher { //returns pointer to new hasher
 }
 
 func (h *hasher) Write(msg string) (int, error) {
-	/*
+	// unneccessary?
 	   type Writer interface {
 	   	Write(p []byte) (n int, err error)
 	   }
 
-	*/
 	// writes data to the hasher. accepts a string and casts to []byte
 	bMsg := []byte(msg)
 	n, err := h.hash.Write(bMsg)
@@ -46,6 +67,7 @@ func (h *hasher) GetHex() string {
 	return fmt.Sprintf("%x", hashValue)
 
 }
+*/
 
 /*
 package main
