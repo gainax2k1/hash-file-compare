@@ -8,16 +8,15 @@ package walkdir
 // currently, this is doing both the walk and the sha256 hash
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
-	"io"
 	"log"
 	"os"
 	"path/filepath"
+
+	hashFile "github.com/gainax2k1/hash-file-compare/hashFile"
 )
 
-func main() {
+func WalkDir() {
 	if len(os.Args) < 2 {
 		log.Fatalf("Usage: %s <directory_path>\n", os.Args[0])
 	}
@@ -31,7 +30,7 @@ func main() {
 		}
 		// Process only files, ignore directories
 		if !info.IsDir() {
-			hashValue, err := hashFile(path)
+			hashValue, err := hashFile.HashFile(path)
 			if err != nil {
 				log.Printf("Error hashing file %s: %v\n", path, err)
 				return nil // Continue with next file
@@ -53,6 +52,7 @@ func main() {
 	}
 }
 
+/*
 // hashFile computes the SHA256 hash for a given file
 func hashFile(filename string) (string, error) {
 	file, err := os.Open(filename)
@@ -69,3 +69,4 @@ func hashFile(filename string) (string, error) {
 	hash := hasher.Sum(nil)
 	return hex.EncodeToString(hash), nil
 }
+*/

@@ -6,6 +6,7 @@ import (
 	"os"
 
 	hashfile "github.com/gainax2k1/hash-file-compare/hashFile"
+	walkDir "github.com/gainax2k1/hash-file-compare/walkDir"
 )
 
 func main() {
@@ -14,12 +15,24 @@ func main() {
 		log.Fatalf("Usage: %s <filename>\n", os.Args[0])
 	}
 
+	// check for -d flag here to call WalkDir with folder name ( i believe? )
+	if os.Args[1] == "-d" {
+		if len(os.Args) < 3 {
+			log.Fatalf("Usage: %s -d <directory_path>\n", os.Args[0])
+		}
+		walkDir.WalkDir()
+		return
+	}
+	// case switch, perhaps?
+
+	// handles single file hash value check
 	filename := os.Args[1]
 
 	fileHashValue, err := hashfile.HashFile(filename)
 	if err != nil {
-		//handle error here!!! *********************
+		log.Fatalf("Error hashing file: %v\n", err)
 	}
+
 	fmt.Println(fileHashValue)
 
 }
