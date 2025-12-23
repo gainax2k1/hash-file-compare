@@ -15,15 +15,16 @@ func main() {
 		log.Fatalf("Usage: %s <filename>\n", os.Args[0])
 	}
 
-	// check for -d flag here to call WalkDir with folder name ( i believe? )
+	// check for -d flag here to call WalkDir
 	if os.Args[1] == "-d" {
+		// verify there's a directory path argument
 		if len(os.Args) < 3 {
 			log.Fatalf("Usage: %s -d <directory_path>\n", os.Args[0])
 		}
-		walkDir.WalkDir()
+		// call WalkDir with the provided directory path
+		walkDir.WalkDir(os.Args[2])
 		return
 	}
-	// case switch, perhaps?
 
 	// handles single file hash value check
 	filename := os.Args[1]
