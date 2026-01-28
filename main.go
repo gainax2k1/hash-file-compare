@@ -22,6 +22,7 @@ func main() {
 			log.Fatalf("Usage: %s -d <directory_path>\n", os.Args[0])
 		}
 		// call WalkDir with the provided directory path
+		// Need to rework this!
 		walkDir.WalkDir(os.Args[2])
 		return
 	}
