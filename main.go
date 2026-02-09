@@ -41,6 +41,22 @@ func main() {
 		displayDupicateFiles(returnedMap)
 		return
 	}
+	if os.Args[1] == "-REMOVE" {
+		// verify there's a directory path argument
+		if len(os.Args) < 3 {
+			log.Fatalf("Usage: %s -REMOVE <directory_path>\n", os.Args[0])
+		}
+
+		// call WalkDir with the provided directory path
+		returnedMap, err := walkDir.WalkDir(os.Args[2])
+		if err != nil {
+			log.Fatalf("Error walking directory: %v\n", err)
+		}
+
+		// Remove duplicate files
+		deleteDuplicateFiles(returnedMap)
+		return
+	}
 
 	// handles single file hash value check
 	filename := os.Args[1]
@@ -62,6 +78,22 @@ func displayDupicateFiles(hashMap map[string][]string) {
 			for _, path := range paths {
 				fmt.Printf(" - %s\n", path)
 
+			}
+		}
+	}
+}
+
+func deleteDuplicateFiles(hashMap map[string][]string) {
+	for _, paths := range hashMap {
+		if len(paths) > 1 {
+			// Keep the first file and delete the rest
+			for i := 1; i < len(paths); i++ {
+				err := os.Remove(paths[i])
+				if err != nil {
+					log.Printf("Error deleting file %s: %v\n", paths[i], err)
+				} else {
+					fmt.Printf("Deleted duplicate file: %s\n", paths[i])
+				}
 			}
 		}
 	}
