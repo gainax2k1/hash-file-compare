@@ -30,11 +30,12 @@ func WalkDir(dir string) (map[string][]string, error) {
 		// Process only files, ignore directories
 		if !d.IsDir() {
 			hashValue, err := hashFile.HashFile(path)
-			fmt.Println(hashValue, path)
+			// fmt.Println(hashValue, path)
 			if err != nil {
 				log.Printf("Error hashing file %s: %v\n", path, err)
 				return nil // Continue with next file
 			}
+
 			hashMap[hashValue] = append(hashMap[hashValue], path)
 		}
 
