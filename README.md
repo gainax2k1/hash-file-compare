@@ -17,7 +17,7 @@ hash-file-compare -d (directory)
 ```python
 hash-file-compare -TRASH (directory)
 ```
-- Scans through directory, moving all duplicate files to trash after the first found instance
+- (in progress) Scans through directory, moving all duplicate files to trash after the first found instance
 
 
 ```python
