@@ -18,6 +18,8 @@ func main() {
 		log.Fatalf("Usage: %s <filename>\n", os.Args[0])
 	}
 
+	// TODO!: Organize better flag/CLI options implimentation!
+
 	// check for -d flag here to call WalkDir
 	if os.Args[1] == "-d" {
 		// verify there's a directory path argument
