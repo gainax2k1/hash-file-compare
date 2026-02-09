@@ -7,6 +7,8 @@ package walkdir
 // maybe break this up differently.
 
 import (
+	"errors"
+	"fmt"
 	"log"
 	"os"
 	"path/filepath"
@@ -16,30 +18,11 @@ import (
 
 //takes in a directory path, returns a map of hash values (of each file), and slice of the file paths that correspond to each hash value
 
-func WalkDir(dir string) map[string][]string {
+func WalkDir(dir string) (map[string][]string, error) {
 	// map to store hash values and corresponding file paths
 	hashMap := make(map[string][]string)
 
-	// Walk through the directory
-	// filepath.Walk is deprecated, but still works for now
-	/*
-		err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
-			if err != nil {
-				return err
-			}
-			//need to correct this, not ignore dirs
-			// Process only files, ignore directories
-			if !info.IsDir() {
-				hashValue, err := hashFile.HashFile(path)
-				if err != nil {
-					log.Printf("Error hashing file %s: %v\n", path, err)
-					return nil // Continue with next file
-				}
-				hashMap[hashValue] = append(hashMap[hashValue], path)
-			}
-		})*/
-
-	//refactoring using WalkDir function
+	//refactoring using WalkDir function (replaced deprecated Walk function)
 	err := filepath.WalkDir(dir, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -47,25 +30,25 @@ func WalkDir(dir string) map[string][]string {
 		// Process only files, ignore directories
 		if !d.IsDir() {
 			hashValue, err := hashFile.HashFile(path)
+			fmt.Println(hashValue, path)
 			if err != nil {
 				log.Printf("Error hashing file %s: %v\n", path, err)
 				return nil // Continue with next file
 			}
 			hashMap[hashValue] = append(hashMap[hashValue], path)
 		}
+
 		return nil
 	})
 
 	if err != nil {
-		log.Fatalf("Error walking the directory: %v\n", err)
+		return nil, fmt.Errorf("Error walking: %w", err)
 	}
-	/*
-		// Print hash files
-		for hash, files := range hashMap {
-			if len(files) > 1 {
-				fmt.Printf("Hash: %s\nFiles: %v\n", hash, files)
-			}
-		}
-	*/
-	return hashMap
+	// Check if any files were processed
+	if len(hashMap) == 0 {
+		return nil, errors.New("no files found in the directory")
+	}
+
+	// Return the map of hash values and file paths
+	return hashMap, nil
 }
