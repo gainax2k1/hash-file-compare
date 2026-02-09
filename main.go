@@ -21,18 +21,22 @@ func main() {
 		if len(os.Args) < 3 {
 			log.Fatalf("Usage: %s -d <directory_path>\n", os.Args[0])
 		}
+
 		// call WalkDir with the provided directory path
-		// Need to rework this!
 		returnedMap, err := walkDir.WalkDir(os.Args[2])
 		if err != nil {
 			log.Fatalf("Error walking directory: %v\n", err)
 		}
-		// Print hash files
-		for hash := range returnedMap {
-			for _, path := range returnedMap[hash] {
-				fmt.Printf("Hash: %s\nFiles: %v\n", hash, path)
-			}
-		}
+
+		// Print hash files for debugging purposes
+		/*
+			for hash := range returnedMap {
+				for _, path := range returnedMap[hash] {
+					fmt.Printf("Hash: %s\nFiles: %v\n", hash, path)
+				}
+			}*/
+
+		// Display duplicate files for debugging purposes
 		fmt.Println("Printing duplicate files:")
 		displayDupicateFiles(returnedMap)
 		return
@@ -53,7 +57,12 @@ func main() {
 func displayDupicateFiles(hashMap map[string][]string) {
 	for hash, paths := range hashMap {
 		if len(paths) > 1 {
-			fmt.Printf("Hash: %s\nFiles: %v\n", hash, paths)
+			fmt.Printf("Hash: %s", hash)
+			fmt.Println("Files:")
+			for _, path := range paths {
+				fmt.Printf(" - %s\n", path)
+
+			}
 		}
 	}
 }
