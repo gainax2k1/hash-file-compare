@@ -44,6 +44,28 @@ func main() {
 		displayDupicateFiles(returnedMap)
 		return
 	}
+
+	if os.Args[1] == "-TRASH" {
+		// verify there's a directory path argument
+		if len(os.Args) < 3 {
+			log.Fatalf("Usage: %s -TRASH <directory_path>\n", os.Args[0])
+		}
+
+		// call WalkDir with the provided directory path
+		returnedMap, err := walkDir.WalkDir(os.Args[2])
+		if err != nil {
+			log.Fatalf("Error walking directory: %v\n", err)
+		}
+
+		// Remove duplicate files
+		err = trashDuplicateFiles(returnedMap)
+		if err != nil {
+			log.Fatalf("Error trashing duplicate files: %v\n", err)
+		}
+
+		return
+	}
+
 	if os.Args[1] == "-REMOVE" {
 		// verify there's a directory path argument
 		if len(os.Args) < 3 {
@@ -86,24 +108,6 @@ func displayDupicateFiles(hashMap map[string][]string) {
 	}
 }
 
-func getTrashPath() (string, error) {
-	usr, err := user.Current()
-	if err != nil {
-		return "", fmt.Errorf("unable to get current user: %v", err)
-	}
-
-	switch runtime.GOOS {
-	case "windows":
-		return "C:\\$Recycle.Bin\\", nil
-	case "darwin":
-		return filepath.Join("/Users", usr.Username, ".Trash/"), nil
-	case "linux":
-		return filepath.Join("/home", usr.Username, ".local/share/Trash/files/"), nil
-	default:
-		return "", fmt.Errorf("unsupported OS")
-	}
-}
-
 func trashDuplicateFiles(hashMap map[string][]string) error {
 	//Get username for trash path
 	usr, err := user.Current()
@@ -113,33 +117,48 @@ func trashDuplicateFiles(hashMap map[string][]string) error {
 
 	// Define the trash path based on the OS
 	var trashPath string
-
 	switch runtime.GOOS {
 	case "windows":
 		trashPath = "C:\\$Recycle.Bin\\"
 	case "darwin":
-		trashPath = "/Users" + usr.Username + ".Trash/"
+		trashPath = filepath.Join("/Users", usr.Username, ".Trash")
 	case "linux":
-		trashPath = "/home" + usr.Username + ".local/share/Trash/files/"
+		trashPath = filepath.Join("/home", usr.Username, ".local/share/Trash/files/")
 	default:
 		return fmt.Errorf("unsupported OS for trashing files")
 	}
 
+	/*
+		switch runtime.GOOS {
+		case "windows":
+			trashPath = "C:\\$Recycle.Bin\\"
+		case "darwin":
+			trashPath = "/Users/" + usr.Username + "/.Trash/"
+		case "linux":
+			trashPath = "/home/" + usr.Username + "/.local/share/Trash/files/"
+		default:
+			return fmt.Errorf("unsupported OS for trashing files")
+		} */
+
 	for _, paths := range hashMap {
 		if len(paths) > 1 {
-			// Keep the first file and delete the rest
+			// Keep the first file and trash the rest
 			for i := 1; i < len(paths); i++ {
+
+				destPath := filepath.Join(trashPath, filepath.Base(paths[i]))
 				// Move the file to the trash, adding trashPath to the file name
-				err := os.Rename(paths[i], trashPath+"/"+paths[i])
+				err := os.Rename(paths[i], destPath)
 
 				if err != nil {
 					log.Printf("Error moving to trash file %s: %v\n", paths[i], err)
+					return err
 				} else {
 					fmt.Printf("Trashed file: %s\n", paths[i])
 				}
 			}
 		}
 	}
+	return nil
 }
 
 func deleteDuplicateFiles(hashMap map[string][]string) {
