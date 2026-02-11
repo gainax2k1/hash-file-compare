@@ -18,6 +18,8 @@ func main() {
 		log.Fatalf("Usage: %s <filename>\n", os.Args[0])
 	}
 
+	// TODO!: Add logging, for duplicate files/deleteted/trashed files, and errors. Maybe add a -v flag for verbose logging?
+
 	// TODO!: Organize better flag/CLI options implimentation!
 
 	// check for -d flag here to call WalkDir
@@ -97,20 +99,25 @@ func main() {
 
 }
 
-func displayDupicateFiles(hashMap map[string][]string) {
+func displayDupicateFiles(hashMap map[string][]walkDir.FileInfo) {
 	for hash, paths := range hashMap {
 		if len(paths) > 1 {
 			fmt.Printf("Hash: %s", hash)
 			fmt.Println("Files:")
 			for _, path := range paths {
-				fmt.Printf(" - %s\n", path)
+				fmt.Printf(" path: %s size: %d\n", path.FilePath, path.FileSize)
 
 			}
 		}
 	}
 }
 
-func trashDuplicateFiles(hashMap map[string][]string) error {
+/*
+NEED TO DO: Add functionality for linux (at least? windows might not be a problem) for handling trashing files
+on other drives. Maybe copy them to root drive's trash? or maybe move to a folder on that drive, label it as trash
+and let user handle it?
+*/
+func trashDuplicateFiles(hashMap map[string][]walkDir.FileInfo) error {
 	//Get username for trash path
 	usr, err := user.Current()
 	if err != nil {
@@ -122,7 +129,7 @@ func trashDuplicateFiles(hashMap map[string][]string) error {
 	switch runtime.GOOS {
 	case "windows":
 		trashPath = "C:\\$Recycle.Bin\\"
-	case "darwin":
+	case "darwin": //macOS
 		trashPath = filepath.Join("/Users", usr.Username, ".Trash")
 	case "linux":
 		trashPath = filepath.Join("/home", usr.Username, ".local/share/Trash/files/")
@@ -130,32 +137,20 @@ func trashDuplicateFiles(hashMap map[string][]string) error {
 		return fmt.Errorf("unsupported OS for trashing files")
 	}
 
-	/*
-		switch runtime.GOOS {
-		case "windows":
-			trashPath = "C:\\$Recycle.Bin\\"
-		case "darwin":
-			trashPath = "/Users/" + usr.Username + "/.Trash/"
-		case "linux":
-			trashPath = "/home/" + usr.Username + "/.local/share/Trash/files/"
-		default:
-			return fmt.Errorf("unsupported OS for trashing files")
-		} */
-
 	for _, paths := range hashMap {
 		if len(paths) > 1 {
 			// Keep the first file and trash the rest
 			for i := 1; i < len(paths); i++ {
 
-				destPath := filepath.Join(trashPath, filepath.Base(paths[i]))
+				destPath := filepath.Join(trashPath, filepath.Base(paths[i].FilePath))
 				// Move the file to the trash, adding trashPath to the file name
-				err := os.Rename(paths[i], destPath)
+				err := os.Rename(paths[i].FilePath, destPath)
 
 				if err != nil {
-					log.Printf("Error moving to trash file %s: %v\n", paths[i], err)
+					log.Printf("Error moving to trash file %s: %v\n", paths[i].FilePath, err)
 					return err
 				} else {
-					fmt.Printf("Trashed file: %s\n", paths[i])
+					fmt.Printf("Trashed file: %s\n", paths[i].FilePath)
 				}
 			}
 		}
@@ -163,14 +158,14 @@ func trashDuplicateFiles(hashMap map[string][]string) error {
 	return nil
 }
 
-func deleteDuplicateFiles(hashMap map[string][]string) {
+func deleteDuplicateFiles(hashMap map[string][]walkDir.FileInfo) {
 	for _, paths := range hashMap {
 		if len(paths) > 1 {
 			// Keep the first file and delete the rest
 			for i := 1; i < len(paths); i++ {
-				err := os.Remove(paths[i])
+				err := os.Remove(paths[i].FilePath)
 				if err != nil {
-					log.Printf("Error deleting file %s: %v\n", paths[i], err)
+					log.Printf("Error deleting file %s: %v\n", paths[i].FilePath, err)
 				} else {
 					fmt.Printf("Deleted duplicate file: %s\n", paths[i])
 				}
