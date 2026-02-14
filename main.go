@@ -114,7 +114,7 @@ func displayDupicateFiles(hashMap map[string][]walkDir.FileInfo) {
 
 /*
 NEED TO DO: Add functionality for linux (at least? windows might not be a problem) for handling trashing files
-on other drives. Maybe copy them to root drive's trash? or maybe move to a folder on that drive, label it as trash
+on other drives (currently only works on root drives). Maybe copy them to root drive's trash? or maybe move to a folder on that drive, label it as trash
 and let user handle it?
 */
 func trashDuplicateFiles(hashMap map[string][]walkDir.FileInfo) error {

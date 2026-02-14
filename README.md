@@ -15,7 +15,7 @@ hash-file-compare  (filename)
 ```python
 hash-file-compare -d (directory)
 ```
-- Scans through directory, displaying lists of duplicate files with their size and their hash value
+- Scans through directory and sub-directories, displaying lists of duplicate files with their size and their hash value
 
 ```python
 hash-file-compare -TRASH (directory)
