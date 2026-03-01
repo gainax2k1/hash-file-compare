@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	"runtime"
 
-	hashfile "github.com/gainax2k1/hash-file-compare/hashFile"
-	walkDir "github.com/gainax2k1/hash-file-compare/walkDir"
+	hashfile "github.com/gainax2k1/hash-file-compare/hashfile"
+	walkdir "github.com/gainax2k1/hash-file-compare/walkdir"
 )
 
 func main() {
@@ -30,7 +30,7 @@ func main() {
 		}
 
 		// call WalkDir with the provided directory path
-		returnedMap, err := walkDir.WalkDir(os.Args[2])
+		returnedMap, err := walkdir.WalkDir(os.Args[2])
 		if err != nil {
 			log.Fatalf("Error walking directory: %v\n", err)
 		}
@@ -66,7 +66,7 @@ func main() {
 		}
 
 		// call WalkDir with the provided directory path
-		returnedMap, err := walkDir.WalkDir(os.Args[2])
+		returnedMap, err := walkdir.WalkDir(os.Args[2])
 		if err != nil {
 			log.Fatalf("Error walking directory: %v\n", err)
 		}
@@ -87,7 +87,7 @@ func main() {
 		}
 
 		// call WalkDir with the provided directory path
-		returnedMap, err := walkDir.WalkDir(os.Args[2])
+		returnedMap, err := walkdir.WalkDir(os.Args[2])
 		if err != nil {
 			log.Fatalf("Error walking directory: %v\n", err)
 		}
@@ -100,7 +100,7 @@ func main() {
 	// handles single file hash value check
 	filename := os.Args[1]
 
-	fileHashValue, err := hashfile.HashFile(filename)
+	fileHashValue, err := hashfile.HashFromFilename(filename)
 	if err != nil {
 		log.Fatalf("Error hashing file: %v\n", err)
 	}
@@ -109,7 +109,7 @@ func main() {
 
 }
 
-func displayDupicateFiles(hashMap map[string][]walkDir.FileInfo) {
+func displayDupicateFiles(hashMap map[string][]walkdir.FileInfo) {
 	for hash, paths := range hashMap {
 		if len(paths) > 1 {
 			fmt.Printf("Hash: %s", hash)
@@ -127,7 +127,7 @@ NEED TO DO: Add functionality for linux (at least? windows might not be a proble
 on other drives (currently only works on root drives). Maybe copy them to root drive's trash? or maybe move to a folder on that drive, label it as trash
 and let user handle it?
 */
-func trashDuplicateFiles(hashMap map[string][]walkDir.FileInfo) error {
+func trashDuplicateFiles(hashMap map[string][]walkdir.FileInfo) error {
 	//Get username for trash path
 	usr, err := user.Current()
 	if err != nil {
@@ -168,7 +168,7 @@ func trashDuplicateFiles(hashMap map[string][]walkDir.FileInfo) error {
 	return nil
 }
 
-func deleteDuplicateFiles(hashMap map[string][]walkDir.FileInfo) {
+func deleteDuplicateFiles(hashMap map[string][]walkdir.FileInfo) {
 	for _, paths := range hashMap {
 		if len(paths) > 1 {
 			// Keep the first file and delete the rest

@@ -15,7 +15,7 @@ import (
 	"os"
 	"path/filepath"
 
-	hashFile "github.com/gainax2k1/hash-file-compare/hashFile"
+	hashfile "github.com/gainax2k1/hash-file-compare/hashfile"
 )
 
 type FileInfo struct {
@@ -23,7 +23,8 @@ type FileInfo struct {
 	FileSize int64
 }
 
-//takes in a directory path, returns a map of hash values (of each file), and slice of the file paths that correspond to each hash value
+//takes in a directory path, returns a map of hash values (of each file),
+// and slice of the file paths that correspond to each hash value
 
 func WalkDir(dir string) (map[string][]FileInfo, error) {
 	// map to store hash values and corresponding file paths
@@ -36,7 +37,7 @@ func WalkDir(dir string) (map[string][]FileInfo, error) {
 		}
 		// Process only files, ignore directories
 		if !d.IsDir() {
-			hashValue, err := hashFile.HashFile(path)
+			hashValue, err := hashfile.HashFromFilename(path)
 			// fmt.Println(hashValue, path)
 			if err != nil {
 				log.Printf("Error hashing file %s: %v\n", path, err)
