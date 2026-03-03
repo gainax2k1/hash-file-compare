@@ -3,6 +3,7 @@ package main
 import (
 	"flag" // for future use with CLI options
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"os/user"
@@ -22,16 +23,60 @@ type Config struct {
 	LogPath string
 }
 
+// ***************************************
+type Logger struct {
+	file      *os.File
+	stdLogger *log.Logger
+}
+
+func NewLogger(logPath string, toScreen bool) (*Logger, error) {
+	var writer io.Writer
+	var file *os.File
+
+	if logPath == "none" {
+		writer = os.Stdout
+	} else {
+		var err error
+		file, err = os.Create(logPath)
+		if err != nil {
+			return nil, fmt.Errorf("creating log file: %w", err)
+		}
+
+		if toScreen {
+			writer = io.MultiWriter(os.Stdout, file)
+		} else {
+			writer = file
+		}
+	}
+
+	return &Logger{
+		file:      file,
+		stdLogger: log.New(writer, "", log.LstdFlags),
+	}, nil
+}
+
+func (l *Logger) Log(format string, args ...interface{}) {
+	l.stdLogger.Printf(format, args...)
+}
+
+func (l *Logger) Close() {
+	if l.file != nil {
+		l.file.Close()
+	}
+}
+
+// ***************************************
+
 func main() {
-	fmt.Println("Find duplicate files by hash value")
 	// Define flags
 	oneFile := flag.Bool("f", false, "Hash single file mode")
 	dirMode := flag.Bool("d", false, "Hash directory mode")
 	trashFlag := flag.Bool("trash", false, "Trash duplicate files instead of just listing")
 	deletFlag := flag.Bool("delete", false, "Delete duplicate files instead of just listing")
 	logFlag := flag.String("log", "none", "Log path, or 'default' for current directory")
-	verboseFlag := flag.Bool("v", false, "Verbose output")
-	listFlag := flag.Bool("list", false, "List duplicates without deleting/trashing")
+	verboseFlag := flag.Bool("v", false, "verbose mode,")
+	//list mode will be default behavior, just list duplicates without deleting or trashing.
+	//listFlag := flag.Bool("list", false, "List duplicates without deleting/trashing")
 
 	flag.Parse()
 
@@ -118,9 +163,6 @@ func runDirectoryMode(config Config) error {
 		return fmt.Errorf("Error walking directory: %v", err)
 	}
 
-	fmt.Println("Printing duplicate files:")
-	displayDupicateFiles(returnedMap)
-
 	if config.Trash {
 		if err := trashDuplicateFiles(returnedMap); err != nil {
 			return fmt.Errorf("Error trashing duplicate files: %v", err)
@@ -129,13 +171,26 @@ func runDirectoryMode(config Config) error {
 		if err := deleteDuplicateFiles(returnedMap); err != nil {
 			return fmt.Errorf("Error deleting duplicate files: %v", err)
 		}
+	} else {
+		// just list duplicates, do nothing else
+		fmt.Println("Duplicate files:")
+		displayDupicateFiles(returnedMap)
 	}
 
 	return nil
 }
 
-func displayDupicateFiles(hashMap map[string][]walkdir.FileInfo) {
+func displayDupicateFiles(hashMap map[string][]walkdir.FileInfo, config Config) {
 	for hash, paths := range hashMap {
+		if config.Verbose {
+			// if verbose, print all files, even if not duplicates, and include file sizes
+			fmt.Printf("Hash: %s\n", hash)
+			fmt.Println("Files:")
+			for _, path := range paths {
+				fmt.Printf(" path: %s size: %d\n", path.FilePath, path.FileSize)
+			}
+
+		} else // if not verbose, just print instances with duplicates
 		if len(paths) > 1 {
 			fmt.Printf("Hash: %s", hash)
 			fmt.Println("Files:")
@@ -217,4 +272,5 @@ func deleteDuplicateFiles(hashMap map[string][]walkdir.FileInfo) error {
 			}
 		}
 	}
+	return nil
 }
