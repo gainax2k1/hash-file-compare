@@ -2,15 +2,16 @@
 CLI tool that creates and compares file hashes, using SHA-256. 
 This tool also makes it easy to delete duplicate files, move them to trash, or output a list of all duplicate files with their filesize. It uses SHA-256 to uniquely identify the file contents, so even if a duplicate file has a different name, it will still be flagged. The filesize is included for refrence, and for the remote chance of hash collision. 
 
+* symlinks and empty files are ignored.
+
 (I developed this tool primarily to cleanup my data hoarding backup that had gotten out of hand with sloppy backups, included multiple copies of the same .iso image in multiple folders, repeated backups of cell phone pics, etc. I was able to quickly remove ~200 Gb of duplicate files on a 4 Tb drive. )
 
 # Usage:
 
 ```python
-hash-file-compare  (filename)
+hash-file-compare -f (filename)
 ```
 - returns hash value of (filename)
-
 
 ```python
 hash-file-compare -d (directory)
