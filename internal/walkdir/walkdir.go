@@ -14,9 +14,9 @@ import (
 	"os"
 	"path/filepath"
 
-	logger "github.com/gainax2k1/hash-file-compare/internal/logger"
+	logger "github.com/gainax2k1/hashcomparefiles/internal/logger"
 
-	hashfile "github.com/gainax2k1/hash-file-compare/internal/hashfile"
+	hashfile "github.com/gainax2k1/hashcomparefiles/internal/hashfile"
 )
 
 type FileInfo struct {

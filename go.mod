@@ -1,3 +1,3 @@
-module github.com/gainax2k1/hash-file-compare
+module github.com/gainax2k1/hashcomparefiles
 
 go 1.24.5

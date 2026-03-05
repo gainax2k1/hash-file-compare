@@ -13,9 +13,9 @@ import (
 	"strings"
 	"time"
 
-	hashfile "github.com/gainax2k1/hash-file-compare/internal/hashfile"
-	"github.com/gainax2k1/hash-file-compare/internal/logger"
-	walkdir "github.com/gainax2k1/hash-file-compare/internal/walkdir"
+	hashfile "github.com/gainax2k1/hashcomparefiles/internal/hashfile"
+	"github.com/gainax2k1/hashcomparefiles/internal/logger"
+	walkdir "github.com/gainax2k1/hashcomparefiles/internal/walkdir"
 )
 
 type Config struct {
