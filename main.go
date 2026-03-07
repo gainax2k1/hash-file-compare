@@ -19,21 +19,21 @@ import (
 )
 
 type Config struct {
-	Path             string
-	Trash            bool
-	Delete           bool
-	Verbose          bool
+	FilePath         string
+	TrashPath        string
+	TrashInfoPath    string
 	LogPath          string
+	RemoveFlag       bool
 	ShowPreHashCount bool
 }
 
 func main() {
 	// Define flags and parse
-	trashFlag := flag.Bool("trash", false, "Trash duplicate files instead of just listing")
-	deletFlag := flag.Bool("delete", false, "Delete duplicate files instead of just listing")
+	//trashFlag := flag.Bool("trash", false, "Trash duplicate files instead of just listing")
+	//deletFlag := flag.Bool("delete", false, "Delete duplicate files instead of just listing")
+	removeFlag := flag.Bool("remove", false, "Selectively choose which duplicates to trash or delete if desired")
 	logFlag := flag.String("log", "none", "Log path, or 'default' for current directory")
 	showPreHashCountFlag := flag.Bool("p", false, "Show Pre-hash file count (Potentially usefull for large runs, but now hits storage twice)")
-	verboseFlag := flag.Bool("v", false, "verbose mode,")
 
 	flag.Parse()
 
@@ -61,19 +61,26 @@ func main() {
 	}
 
 	// Create config struct with parsed values
+	trashPath, trashInfoPath, err := configTrash()
+	if err != nil {
+		log.Fatalf("Error configuring trash: %v", err)
+
+	}
+
 	config := Config{
-		Trash:            *trashFlag,
-		Delete:           *deletFlag,
-		Verbose:          *verboseFlag,
+		TrashPath:        trashPath,
+		TrashInfoPath:    trashInfoPath,
 		LogPath:          *logFlag,
 		ShowPreHashCount: *showPreHashCountFlag,
+		RemoveFlag:       *removeFlag,
 	}
 
 	// All output will be done through the logger, writing to file and/or screen based on config
-	logger, err := logger.NewLogger(config.LogPath, config.Verbose)
+	logger, err := logger.NewLogger(config.LogPath)
 	if err != nil {
 		log.Fatalf("Error creating logger: %v", err)
 	}
+
 	defer logger.Close()
 
 	err = process(targets, config, logger)
@@ -92,7 +99,7 @@ func process(targets []string, config Config, logger *logger.Logger) error {
 	if config.ShowPreHashCount {
 		for _, path := range targets {
 			// Run the walk for each path and merge results into masterMap
-			_, count, err := walkdir.WalkDir(path, logger, config.Verbose, runHash)
+			_, count, err := walkdir.WalkDir(path, logger, runHash)
 			if err != nil {
 				logger.Error("Skipping %s due to error: %v", path, err)
 				continue // Keep going with other targets!
@@ -107,7 +114,7 @@ func process(targets []string, config Config, logger *logger.Logger) error {
 	runHash = true
 	for _, path := range targets {
 		// Run the walk for each path and merge results into masterMap
-		dirMap, count, err := walkdir.WalkDir(path, logger, config.Verbose, runHash)
+		dirMap, count, err := walkdir.WalkDir(path, logger, runHash)
 		if err != nil {
 			logger.Error("Skipping %s due to error: %v", path, err)
 			continue // Keep going with other targets!
@@ -120,153 +127,89 @@ func process(targets []string, config Config, logger *logger.Logger) error {
 		}
 	}
 
-	if config.Trash {
-		if err := trashDuplicateFiles(masterMap, logger); err != nil {
-			return fmt.Errorf("Error trashing duplicate files: %w", err)
-		}
-	} else if config.Delete {
-		if err := deleteDuplicateFiles(masterMap, logger); err != nil {
-			return fmt.Errorf("Error deleting duplicate files: %w", err)
+	//shrink map to only duplicates because we don't need unique hashes
+	masterMap, totalCount = filterDuplicates(masterMap)
+
+	if config.RemoveFlag {
+		err := removeFiles(masterMap, logger, &config)
+		if err != nil {
+			return err
 		}
 	} else {
-		// just list duplicates, do nothing else
-
-		displayHashMap(logger, masterMap, totalCount, config)
+		displayHashMap(logger, masterMap, totalCount)
 	}
-
 	return nil
 }
 
-func displayHashMap(logger *logger.Logger, hashMap map[string][]walkdir.FileInfo, count int, config Config) {
+func displayHashMap(logger *logger.Logger, hashMap map[string][]walkdir.FileInfo, count int) {
 	for hash, paths := range hashMap {
-		if config.Verbose {
-			// if verbose, print all files, even if not duplicates, and include file sizes
-			logger.Log("Hash: %s", hash)
-
-			for _, path := range paths {
-				logger.Log(" - %s size: %d", path.FilePath, path.FileSize)
-			}
-
-		} else { // if not verbose, just print instances with duplicates
-
-			if len(paths) > 1 {
-				logger.Log("Duplicate files with hash: %s", hash)
-				for _, path := range paths {
-					logger.Log(" - %s size: %d", path.FilePath, path.FileSize)
-
-				}
-			}
+		logger.Log("Files with hash: %s", hash)
+		for _, path := range paths {
+			logger.Log(" - %s size: %d", path.FilePath, path.FileSize)
 		}
-
 	}
-	logger.Log("Total files processed: %d", count)
+	logger.Log("Total files processed in this batch: %d", count)
 }
 
-func trashDuplicateFiles(hashMap map[string][]walkdir.FileInfo, logger *logger.Logger) error {
-	//Get username for trash path
-	usr, err := user.Current()
-	if err != nil {
-		return fmt.Errorf("unable to get current user: %v", err)
-	}
-
-	// Define the trash path based on the OS
-	var trashPath, trashInfoDir string
-
-	if runtime.GOOS == "linux" {
-
-		trashPath = filepath.Join(usr.HomeDir, ".local/share/Trash/files/")
-		trashInfoDir = filepath.Join(usr.HomeDir, ".local/share/Trash/info/")
-		// Ensure the trash info directory exists
-		if _, err := os.Stat(trashInfoDir); os.IsNotExist(err) {
-			err := os.MkdirAll(trashInfoDir, 0755)
-			if err != nil {
-				return fmt.Errorf("Error creating trash info directory: %v", err)
-			}
-		}
-	} else {
-		trashPath = "trash"
-		trashInfoDir = "trash"
-		// Ensure the trash directory exists
-		if _, err := os.Stat(trashPath); os.IsNotExist(err) {
-			err := os.Mkdir(trashPath, 0755)
-			if err != nil {
-				return err
-			}
-		}
-	}
-
-	for _, paths := range hashMap {
-		if len(paths) > 1 {
-			// Keep the first file and trash the rest
-			// *Future improvement*: iterate through duplicates and ask user which one to keep,
-			//  or if they want to keep all, trash all, etc. For now, just keep the first one and trash the rest.
-
-			for i := 1; i < len(paths); i++ {
-
-				// Create a unique name for the file in the trash to avoid conflicts
-				ext := filepath.Ext(paths[i].FilePath)
-				name := strings.TrimSuffix(filepath.Base(paths[i].FilePath), ext)
-				enumeratedName := fmt.Sprintf("%s_%d%s", name, i, ext)
-
-				destPath := filepath.Join(trashPath, enumeratedName)
-				src := paths[i].FilePath
-
-				// Move the file to the trash, adding trashPath to the file name
-				// First try to rename (move) the file, which is more efficient.
-				err := os.Rename(paths[i].FilePath, destPath)
-				if err != nil {
-					// Rename failed, try copy + delete method as a fallback
-					err = copyFile(src, destPath)
-					if err != nil {
-						logger.Error("Error copying file to trash %s: %v", paths[i].FilePath, err)
-						return err
-					}
-					err = os.Remove(src)
-					if err != nil {
-						logger.Error("Error deleting original file after copying to trash %s: %v", paths[i].FilePath, err)
-						return err
-					}
-
-					logger.Log("Trashed file (copy+delete): %s", paths[i].FilePath)
-				} else {
-					logger.Log("Trashed file: %s", paths[i].FilePath)
-				}
-
-				// Create .trashinfo file (to FreeDesktop spec) if on Linux in appropriate directory, non-Linux will place .trashinfo files
-				// in the same directory as the trashed files for simplicity
-
-				infoPath := filepath.Join(trashInfoDir, enumeratedName+".trashinfo")
-				originalPath := paths[i].FilePath
-				infoContent := fmt.Sprintf("[Trash Info]\nPath=%s\nDeletionDate=%s\n", url.PathEscape(originalPath), time.Now().Format("2006-01-02T15:04:05"))
-
-				err = os.WriteFile(infoPath, []byte(infoContent), 0644)
-				if err != nil {
-					logger.Error("Error creating trash info file for %s: %v", paths[i].FilePath, err)
-					return err
-				}
-
-			}
-		}
-	}
-	return nil
-}
-
-func deleteDuplicateFiles(hashMap map[string][]walkdir.FileInfo, logger *logger.Logger) error {
+func removeFiles(hashMap map[string][]walkdir.FileInfo, logger *logger.Logger, config *Config) error {
 	// Iterate through the hash map and delete duplicate files, keeping the first instance
 	// *Future improvement*: iterate through duplicates and ask user which one to keep.
-	for _, paths := range hashMap {
-		if len(paths) > 1 {
-			// Keep the first file and delete the rest
-			for i := 1; i < len(paths); i++ {
+
+	reader := bufio.NewReader(os.Stdin)
+
+nextHash:
+	for hash, paths := range hashMap {
+
+		//get counts for this hash
+		pathsCount := len(paths)
+
+		subMap := map[string][]walkdir.FileInfo{
+			hash: paths,
+		}
+		//display list of files with this same hash
+		displayHashMap(logger, subMap, pathsCount)
+
+		// iterate through file list
+	nextDuplicate:
+		for i := 0; i < pathsCount; i++ {
+
+			fmt.Printf("Delete file: %s?\n", paths[i].FilePath)
+
+			choice, err := getUserChoice(reader)
+			if err != nil {
+				logger.Error("Error geting user choice: %v", err)
+			}
+
+			switch choice {
+			case "d": //delete file
 				err := os.Remove(paths[i].FilePath)
 				if err != nil {
 					logger.Error("Error deleting file %s: %v", paths[i].FilePath, err)
 				} else {
 					logger.Log("Deleted duplicate file: %s", paths[i].FilePath)
 				}
-			}
+				continue nextDuplicate
 
+			case "t": //trash file
+				err := trashFile(paths[i].FilePath, hash, config)
+				if err != nil {
+					logger.Error("Error deleting file %s: %v", paths[i].FilePath, err)
+				} else {
+					logger.Log("Deleted duplicate file: %s", paths[i].FilePath)
+				}
+
+			case "s": //skip file
+				continue nextDuplicate
+
+			case "c": //continue to next hash
+				continue nextHash
+
+			default:
+				return nil //? shouldn't reach this...?
+
+			}
 		}
+
 	}
 	return nil
 }
@@ -286,4 +229,115 @@ func copyFile(src, dest string) error {
 
 	_, err = io.Copy(destFile, srcFile)
 	return err
+}
+
+func configTrash() (string, string, error) {
+	//Get username for trash path
+	usr, err := user.Current()
+	if err != nil {
+		return "", "", fmt.Errorf("unable to get current user: %v", err)
+	}
+
+	// Define the trash path based on the OS
+	var trashPath, trashInfoDir string
+
+	if runtime.GOOS == "linux" {
+		trashPath = filepath.Join(usr.HomeDir, ".local/share/Trash/files/")
+		trashInfoDir = filepath.Join(usr.HomeDir, ".local/share/Trash/info/")
+		// Ensure the trash info directory exists
+		if _, err := os.Stat(trashInfoDir); os.IsNotExist(err) {
+			err := os.MkdirAll(trashInfoDir, 0755)
+			if err != nil {
+				return "", "", fmt.Errorf("Error creating trash info directory: %v", err)
+			}
+		}
+	} else {
+		trashPath = "trash"
+		trashInfoDir = "trash"
+		// Ensure the trash directory exists
+		if _, err := os.Stat(trashPath); os.IsNotExist(err) {
+			err := os.Mkdir(trashPath, 0755)
+			if err != nil {
+				return "", "", err
+			}
+		}
+	}
+	return trashPath, trashInfoDir, nil
+
+}
+
+func trashFile(filePath string, hashVal string, config *Config) error {
+
+	// Create a unique name for the file in the trash to avoid conflicts
+	ext := filepath.Ext(filePath)
+	name := strings.TrimSuffix(filepath.Base(filePath), ext)
+	//enumeratedName := fmt.Sprintf("%s_%d%s", name, i, ext)
+	enumeratedName := fmt.Sprintf("%s_%s%s", name, hashVal[:8], ext)
+
+	destPath := filepath.Join(config.TrashPath, enumeratedName)
+	src := filePath
+
+	// Move the file to the trash, adding trashPath to the file name
+	// First try to rename (move) the file, which is more efficient.
+	err := os.Rename(filePath, destPath)
+	if err != nil {
+		// Rename failed, try copy + delete method as a fallback
+		err = copyFile(src, destPath)
+		if err != nil {
+			return err
+		}
+		err = os.Remove(src)
+		if err != nil {
+			return err
+		}
+	}
+
+	// Create .trashinfo file (to FreeDesktop spec) if on Linux in appropriate directory, non-Linux will place .trashinfo files
+	// in the same directory as the trashed files for simplicity
+
+	infoPath := filepath.Join(config.TrashInfoPath, enumeratedName+".trashinfo")
+	originalPath := filePath
+	infoContent := fmt.Sprintf("[Trash Info]\nPath=%s\nDeletionDate=%s\n", url.PathEscape(originalPath), time.Now().Format("2006-01-02T15:04:05"))
+
+	err = os.WriteFile(infoPath, []byte(infoContent), 0644)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func getUserChoice(reader *bufio.Reader) (string, error) {
+	choices := map[string]bool{
+		"d": true,
+		"t": true,
+		"s": true,
+		"c": true,
+	}
+
+	for {
+		fmt.Printf(" - (D)elete, (T)rash, (S)kip, (C)ontinue to next hash > ")
+
+		input, err := reader.ReadString('\n')
+		if err != nil {
+			return "", err
+		}
+
+		input = strings.TrimSpace(strings.ToLower(input))
+
+		if choices[input] {
+			return input, nil
+		}
+	}
+}
+func filterDuplicates(hashMap map[string][]walkdir.FileInfo) (map[string][]walkdir.FileInfo, int) {
+	dupesMap := make(map[string][]walkdir.FileInfo)
+	count := 0
+	for hash, paths := range hashMap {
+		if len(paths) > 1 {
+			count++
+			dupesMap[hash] = paths
+		}
+	}
+	return dupesMap, count
 }

@@ -19,7 +19,7 @@ type FileInfo struct {
 // and slice of the file paths that correspond to each hash value
 // Key is the hash value, value is a slice of file paths that have that hash value
 
-func WalkDir(dir string, logger *logger.Logger, verbose bool, runHash bool) (map[string][]FileInfo, int, error) {
+func WalkDir(dir string, logger *logger.Logger, runHash bool) (map[string][]FileInfo, int, error) {
 	// resolve absolute path of the directory
 	absDir, err := filepath.Abs(dir)
 	if err != nil {
@@ -43,9 +43,7 @@ func WalkDir(dir string, logger *logger.Logger, verbose bool, runHash bool) (map
 		// Process only files, ignore directories, symlinks, and empty files
 		if !d.IsDir() {
 			if d.Type()&os.ModeSymlink != 0 {
-				if verbose {
-					logger.Log("Skipping symlink: %s", path)
-				}
+				//skip symlinks
 				return nil
 			}
 
@@ -57,18 +55,13 @@ func WalkDir(dir string, logger *logger.Logger, verbose bool, runHash bool) (map
 
 			fileSize := info.Size()
 			if fileSize == 0 {
-				if verbose {
-					logger.Log("Skipping empty file: %s", path)
-				}
+				//skip empty files
 				return nil
 			}
 
 			count++
 
 			if runHash {
-				if verbose {
-					logger.Log("Hashing: %s", path)
-				}
 				hashValue, err := hashfile.HashFromFilename(path)
 				if err != nil {
 					logger.Error("Error hashing file %s: %v", path, err)
@@ -84,7 +77,7 @@ func WalkDir(dir string, logger *logger.Logger, verbose bool, runHash bool) (map
 				hashMap[hashValue] = append(hashMap[hashValue], fileInfo)
 
 			}
-			if count%100 == 0 && !verbose {
+			if count%100 == 0 {
 				// Pulse/Spinner every 100 files to save CPU
 				// \r clears the line, then we print the spinner and count
 				fmt.Fprintf(os.Stderr, "\r %s Files processed: %d", getSpinner(count/100), count)

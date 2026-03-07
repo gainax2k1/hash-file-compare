@@ -11,10 +11,9 @@ import (
 type Logger struct {
 	file      *os.File
 	stdLogger *log.Logger
-	verbose   bool
 }
 
-func NewLogger(logPath string, verbose bool) (*Logger, error) {
+func NewLogger(logPath string) (*Logger, error) {
 	var writer io.Writer
 	var file *os.File
 	var err error
@@ -44,7 +43,6 @@ func NewLogger(logPath string, verbose bool) (*Logger, error) {
 	return &Logger{
 		file:      file,
 		stdLogger: log.New(writer, "", log.LstdFlags),
-		verbose:   verbose,
 	}, nil
 }
 
