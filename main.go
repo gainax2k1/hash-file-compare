@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"flag"
 	"fmt"
 	"io"
@@ -18,104 +19,119 @@ import (
 )
 
 type Config struct {
-	Path         string
-	Trash        bool
-	Delete       bool
-	Verbose      bool
-	LogPath      string
-	ShowProgress bool
+	Path             string
+	Trash            bool
+	Delete           bool
+	Verbose          bool
+	LogPath          string
+	ShowPreHashCount bool
 }
 
 func main() {
-	// Check if data is being piped in through stdin
-	/* not yet implimented
+	// Define flags and parse
+	trashFlag := flag.Bool("trash", false, "Trash duplicate files instead of just listing")
+	deletFlag := flag.Bool("delete", false, "Delete duplicate files instead of just listing")
+	logFlag := flag.String("log", "none", "Log path, or 'default' for current directory")
+	showPreHashCountFlag := flag.Bool("p", false, "Show Pre-hash file count (Potentially usefull for large runs, but now hits storage twice)")
+	verboseFlag := flag.Bool("v", false, "verbose mode,")
+
+	flag.Parse()
+
+	// Identify all paths to process (pipe or args)
+	var targets []string
+
 	stat, _ := os.Stdin.Stat()
 	if (stat.Mode() & os.ModeCharDevice) == 0 {
 		// Data is being piped in
 		scanner := bufio.NewScanner(os.Stdin)
 		for scanner.Scan() {
-			path := scanner.Text()
-			if path == "" {
-				continue
-			}
-
-	}
-			// Now you can process this path just like a command-line argument!
-		}
-			} else {
-				// No pipe, maybe look for command line arguments?
+			if path := strings.TrimSpace(scanner.Text()); path != "" {
+				targets = append(targets, path)
 			}
 		}
-	} */
-
-	// Define flags
-	trashFlag := flag.Bool("trash", false, "Trash duplicate files instead of just listing")
-	deletFlag := flag.Bool("delete", false, "Delete duplicate files instead of just listing")
-	logFlag := flag.String("log", "none", "Log path, or 'default' for current directory")
-	showProgressFlag := flag.Bool("p", false, "Show progress (Gets filecount before hashing, potentially usefull for large runs, but hits storage twice)")
-	verboseFlag := flag.Bool("v", false, "verbose mode,")
-
-	flag.Parse()
-
-	// Remaining arguments after flags are parsed
-	args := flag.Args()
-	if len(args) < 1 {
-		log.Fatalf("Usage: %s [flags] <path>\n", os.Args[0])
+	} else {
+		// Use command line arguments if no pipe
+		targets = flag.Args()
 	}
-	targetPath := args[0]
+
+	// Validate targets
+	if len(targets) == 0 {
+		fmt.Fprintf(os.Stderr, "Usage: %s [flags] <path>\n", os.Args[0])
+		os.Exit(1)
+	}
 
 	// Create config struct with parsed values
 	config := Config{
-		Path:         targetPath,
-		Trash:        *trashFlag,
-		Delete:       *deletFlag,
-		Verbose:      *verboseFlag,
-		LogPath:      *logFlag,
-		ShowProgress: *showProgressFlag,
+		Trash:            *trashFlag,
+		Delete:           *deletFlag,
+		Verbose:          *verboseFlag,
+		LogPath:          *logFlag,
+		ShowPreHashCount: *showPreHashCountFlag,
 	}
 
-	// Create logger. All output will be done through the logger, which will handle writing to file and/or screen based on config
+	// All output will be done through the logger, writing to file and/or screen based on config
 	logger, err := logger.NewLogger(config.LogPath, config.Verbose)
 	if err != nil {
 		log.Fatalf("Error creating logger: %v", err)
 	}
 	defer logger.Close()
 
-	err = process(config, logger)
+	err = process(targets, config, logger)
 	if err != nil {
 		logger.Error("Error running directory mode: %v", err)
 	}
 
 }
 
-func process(config Config, logger *logger.Logger) error {
-	if config.ShowProgress {
-		runHash := false
-		_, count, err := walkdir.WalkDir(config.Path, logger, config.Verbose, runHash)
+func process(targets []string, config Config, logger *logger.Logger) error {
+
+	masterMap := make(map[string][]walkdir.FileInfo)
+	totalCount := 0
+	runHash := false
+
+	if config.ShowPreHashCount {
+		for _, path := range targets {
+			// Run the walk for each path and merge results into masterMap
+			_, count, err := walkdir.WalkDir(path, logger, config.Verbose, runHash)
+			if err != nil {
+				logger.Error("Skipping %s due to error: %v", path, err)
+				continue // Keep going with other targets!
+			}
+
+			totalCount += count
+		}
+		logger.Log("Total files to process: %d", totalCount)
+		totalCount = 0 // reset for hashing run
+	}
+
+	runHash = true
+	for _, path := range targets {
+		// Run the walk for each path and merge results into masterMap
+		dirMap, count, err := walkdir.WalkDir(path, logger, config.Verbose, runHash)
 		if err != nil {
-			return fmt.Errorf("Error walking directory, non-hash run: %v", err)
+			logger.Error("Skipping %s due to error: %v", path, err)
+			continue // Keep going with other targets!
 		}
 
-		logger.Log("Number of files to process: %d", count)
-	}
-	runHash := true
-	returnedMap, count, err := walkdir.WalkDir(config.Path, logger, config.Verbose, runHash)
-	if err != nil {
-		return fmt.Errorf("Error walking directory: %w", err)
+		totalCount += count
+		// Merge dirMap into masterMap
+		for hash, files := range dirMap {
+			masterMap[hash] = append(masterMap[hash], files...)
+		}
 	}
 
 	if config.Trash {
-		if err := trashDuplicateFiles(returnedMap, logger); err != nil {
+		if err := trashDuplicateFiles(masterMap, logger); err != nil {
 			return fmt.Errorf("Error trashing duplicate files: %w", err)
 		}
 	} else if config.Delete {
-		if err := deleteDuplicateFiles(returnedMap, logger); err != nil {
+		if err := deleteDuplicateFiles(masterMap, logger); err != nil {
 			return fmt.Errorf("Error deleting duplicate files: %w", err)
 		}
 	} else {
 		// just list duplicates, do nothing else
 
-		displayHashMap(logger, returnedMap, count, config)
+		displayHashMap(logger, masterMap, totalCount, config)
 	}
 
 	return nil
@@ -158,8 +174,8 @@ func trashDuplicateFiles(hashMap map[string][]walkdir.FileInfo, logger *logger.L
 
 	if runtime.GOOS == "linux" {
 
-		trashPath = filepath.Join(usr.HomeDir, usr.Username, ".local/share/Trash/files/")
-		trashInfoDir = filepath.Join(usr.HomeDir, usr.Username, ".local/share/Trash/info/")
+		trashPath = filepath.Join(usr.HomeDir, ".local/share/Trash/files/")
+		trashInfoDir = filepath.Join(usr.HomeDir, ".local/share/Trash/info/")
 		// Ensure the trash info directory exists
 		if _, err := os.Stat(trashInfoDir); os.IsNotExist(err) {
 			err := os.MkdirAll(trashInfoDir, 0755)
