@@ -29,8 +29,6 @@ type Config struct {
 
 func main() {
 	// Define flags and parse
-	//trashFlag := flag.Bool("trash", false, "Trash duplicate files instead of just listing")
-	//deletFlag := flag.Bool("delete", false, "Delete duplicate files instead of just listing")
 	removeFlag := flag.Bool("remove", false, "Selectively choose which duplicates to trash or delete if desired")
 	logFlag := flag.String("log", "none", "Log path, or 'default' for current directory")
 	showPreHashCountFlag := flag.Bool("p", false, "Show Pre-hash file count (Potentially usefull for large runs, but now hits storage twice)")
@@ -87,6 +85,7 @@ func main() {
 	if err != nil {
 		logger.Error("Error running directory mode: %v", err)
 	}
+	logger.Log("(Done)")
 
 }
 
@@ -136,26 +135,37 @@ func process(targets []string, config Config, logger *logger.Logger) error {
 			return err
 		}
 	} else {
-		displayHashMap(logger, masterMap, totalCount)
+		displayHashMap(logger, masterMap)
 	}
 	return nil
 }
 
-func displayHashMap(logger *logger.Logger, hashMap map[string][]walkdir.FileInfo, count int) {
+func displayHashMap(logger *logger.Logger, hashMap map[string][]walkdir.FileInfo) {
 	for hash, paths := range hashMap {
+		count := 0
 		logger.Log("Files with hash: %s", hash)
 		for _, path := range paths {
+			count++
 			logger.Log(" - %s size: %d", path.FilePath, path.FileSize)
 		}
+		logger.Log(" -- Duplicates: %d", count)
 	}
-	logger.Log("Total files processed in this batch: %d", count)
+
 }
 
 func removeFiles(hashMap map[string][]walkdir.FileInfo, logger *logger.Logger, config *Config) error {
 	// Iterate through the hash map and delete duplicate files, keeping the first instance
 	// *Future improvement*: iterate through duplicates and ask user which one to keep.
 
-	reader := bufio.NewReader(os.Stdin)
+	tty, err := os.Open("/dev/tty")
+	if err != nil {
+		return fmt.Errorf("cannot open tty for interactive input: %v", err)
+	}
+	defer tty.Close()
+
+	reader := bufio.NewReader(tty)
+
+	//reader := bufio.NewReader(os.Stdin)
 
 nextHash:
 	for hash, paths := range hashMap {
@@ -167,7 +177,8 @@ nextHash:
 			hash: paths,
 		}
 		//display list of files with this same hash
-		displayHashMap(logger, subMap, pathsCount)
+		displayHashMap(logger, subMap)
+		//logger.Log("Duplicates: %d", pathsCount)
 
 		// iterate through file list
 	nextDuplicate:
@@ -335,8 +346,9 @@ func filterDuplicates(hashMap map[string][]walkdir.FileInfo) (map[string][]walkd
 	count := 0
 	for hash, paths := range hashMap {
 		if len(paths) > 1 {
-			count++
+
 			dupesMap[hash] = paths
+			count++
 		}
 	}
 	return dupesMap, count

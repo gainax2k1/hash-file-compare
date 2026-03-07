@@ -31,8 +31,10 @@ func WalkDir(dir string, logger *logger.Logger, runHash bool) (map[string][]File
 	var count int
 
 	defer func() {
-		// ensures newline after spinner, even if an error
-		fmt.Fprintf(os.Stderr, "\n")
+		//ensures newline if spinner ran to not disrupt display
+		if count >= 100 {
+			fmt.Fprintf(os.Stderr, "\n")
+		}
 	}()
 
 	//refactored using WalkDir function (replaced deprecated Walk function)
