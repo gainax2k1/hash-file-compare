@@ -83,7 +83,7 @@ func main() {
 
 	err = process(targets, config, logger)
 	if err != nil {
-		logger.Error("Error running directory mode: %v", err)
+		logger.Error("Error processing: %v", err)
 	}
 	logger.Log("(Done)")
 
