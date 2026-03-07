@@ -18,11 +18,12 @@ import (
 )
 
 type Config struct {
-	Path    string
-	Trash   bool
-	Delete  bool
-	Verbose bool
-	LogPath string
+	Path         string
+	Trash        bool
+	Delete       bool
+	Verbose      bool
+	LogPath      string
+	ShowProgress bool
 }
 
 func main() {
@@ -51,6 +52,7 @@ func main() {
 	trashFlag := flag.Bool("trash", false, "Trash duplicate files instead of just listing")
 	deletFlag := flag.Bool("delete", false, "Delete duplicate files instead of just listing")
 	logFlag := flag.String("log", "none", "Log path, or 'default' for current directory")
+	showProgressFlag := flag.Bool("p", false, "Show progress (Gets filecount before hashing, potentially usefull for large runs, but hits storage twice)")
 	verboseFlag := flag.Bool("v", false, "verbose mode,")
 
 	flag.Parse()
@@ -64,11 +66,12 @@ func main() {
 
 	// Create config struct with parsed values
 	config := Config{
-		Path:    targetPath,
-		Trash:   *trashFlag,
-		Delete:  *deletFlag,
-		Verbose: *verboseFlag,
-		LogPath: *logFlag,
+		Path:         targetPath,
+		Trash:        *trashFlag,
+		Delete:       *deletFlag,
+		Verbose:      *verboseFlag,
+		LogPath:      *logFlag,
+		ShowProgress: *showProgressFlag,
 	}
 
 	// Create logger. All output will be done through the logger, which will handle writing to file and/or screen based on config
@@ -86,28 +89,39 @@ func main() {
 }
 
 func process(config Config, logger *logger.Logger) error {
-	returnedMap, err := walkdir.WalkDir(config.Path, logger)
+	if config.ShowProgress {
+		runHash := false
+		_, count, err := walkdir.WalkDir(config.Path, logger, config.Verbose, runHash)
+		if err != nil {
+			return fmt.Errorf("Error walking directory, non-hash run: %v", err)
+		}
+
+		logger.Log("Number of files to process: %d", count)
+	}
+	runHash := true
+	returnedMap, count, err := walkdir.WalkDir(config.Path, logger, config.Verbose, runHash)
 	if err != nil {
-		return fmt.Errorf("Error walking directory: %v", err)
+		return fmt.Errorf("Error walking directory: %w", err)
 	}
 
 	if config.Trash {
 		if err := trashDuplicateFiles(returnedMap, logger); err != nil {
-			return fmt.Errorf("Error trashing duplicate files: %v", err)
+			return fmt.Errorf("Error trashing duplicate files: %w", err)
 		}
 	} else if config.Delete {
 		if err := deleteDuplicateFiles(returnedMap, logger); err != nil {
-			return fmt.Errorf("Error deleting duplicate files: %v", err)
+			return fmt.Errorf("Error deleting duplicate files: %w", err)
 		}
 	} else {
 		// just list duplicates, do nothing else
-		displayHashMap(logger, returnedMap, config)
+
+		displayHashMap(logger, returnedMap, count, config)
 	}
 
 	return nil
 }
 
-func displayHashMap(logger *logger.Logger, hashMap map[string][]walkdir.FileInfo, config Config) {
+func displayHashMap(logger *logger.Logger, hashMap map[string][]walkdir.FileInfo, count int, config Config) {
 	for hash, paths := range hashMap {
 		if config.Verbose {
 			// if verbose, print all files, even if not duplicates, and include file sizes
@@ -127,7 +141,9 @@ func displayHashMap(logger *logger.Logger, hashMap map[string][]walkdir.FileInfo
 				}
 			}
 		}
+
 	}
+	logger.Log("Total files processed: %d", count)
 }
 
 func trashDuplicateFiles(hashMap map[string][]walkdir.FileInfo, logger *logger.Logger) error {
