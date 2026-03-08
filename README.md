@@ -1,6 +1,6 @@
 <h1> hashcomparefiles</h1>
 A robust CLI tool that computes file hashes to identify duplicate files regardless of filename, using SHA-256, and presents them to the user. This tool also makes it easy to selectively delete duplicate files, move them to trash, or output a list of all duplicate files with their filesize.
-
+*Currently running "brute force", fully hashing ever file (that's not a symlink/empty file), reworking to multi-pass method*
 
 * symlinks and empty files are ignored
 * sub-folders are automatically walked and included
