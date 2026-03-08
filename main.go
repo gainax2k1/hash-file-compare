@@ -165,7 +165,7 @@ func process(targets []string, config Config, logger *logger.Logger) error {
 
 	//shrink map to only duplicates because we don't need unique hashes
 	finalMap, totalCount := filterDuplicates(finalDuplicates)
-	logger.Log("Filecount after shrink: %d", totalCount) // possibly remove
+	logger.Log("Groups of duplicates after shrink: %d", totalCount) // possibly remove
 
 	if config.RemoveFlag {
 		err := removeFiles(finalMap, logger, &config)
