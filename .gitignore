@@ -39,4 +39,4 @@ testdataBACKUP/
 backupTestData/
 *.log
 log
-
+*.slop
