@@ -38,7 +38,7 @@ cat (filename) | hashcomparefiles -(flag)
 - Pipe in list of files and or folders to compare against each other. Flags maintain functionality.
 
 # Examples:
-# Small run, no flags
+<h2> Small run, no flags</h2>
 ```python
 $ hashcomparefiles testdata/
 2026/03/08 16:18:33 Filecount after first pass: 17
