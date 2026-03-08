@@ -5,7 +5,9 @@ A robust CLI tool that computes file hashes to identify duplicate files regardle
 * symlinks and empty files are ignored
 * sub-folders are automatically walked and included
 * compatible with piping in lists of folders/filenames for more customization
-* The filesize is included for reference, and for the remote chance of hash collision. 
+* The filesize is included for reference, and for the remote chance of hash collision.
+
+This tool was developed and tested in a Linux environment (Pop!_OS 24.04 LTS), but I would like it to eventually fully operate in Mac and Windows environments as well. In paricular, the trashing processes in Windows is incompatible, and the input when selectively removing files currently uses TTY.
 
 # Usage:
 
