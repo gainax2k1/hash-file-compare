@@ -131,7 +131,7 @@ $ more log.log
 ```
 
 
-<h2> Running with log on my home directory, note that the full run took about 1 minute.</h2>
+<h2> Running with log on my home directory, note that the full run took less than 1 minute.</h2>
 
 ```python
 $ hashcomparefiles fullhome.log /home/gainax2k1/
