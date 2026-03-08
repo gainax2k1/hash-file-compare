@@ -162,7 +162,7 @@ func removeFiles(hashMap map[string][]walkdir.FileInfo, logger *logger.Logger, c
 	defer tty.Close()
 
 	reader := bufio.NewReader(tty)
-	
+
 nextHash:
 	for hash, paths := range hashMap {
 
@@ -277,7 +277,6 @@ func trashFile(filePath string, hashVal string, config *Config) error {
 	// Create a unique name for the file in the trash to avoid conflicts
 	ext := filepath.Ext(filePath)
 	name := strings.TrimSuffix(filepath.Base(filePath), ext)
-	//enumeratedName := fmt.Sprintf("%s_%d%s", name, i, ext)
 	enumeratedName := fmt.Sprintf("%s_%s%s", name, hashVal[:8], ext)
 
 	destPath := filepath.Join(config.TrashPath, enumeratedName)
@@ -337,14 +336,13 @@ func getUserChoice(reader *bufio.Reader) (string, error) {
 	}
 }
 func filterDuplicates(hashMap map[string][]walkdir.FileInfo) (map[string][]walkdir.FileInfo, int) {
-	dupesMap := make(map[string][]walkdir.FileInfo)
 	count := 0
 	for hash, paths := range hashMap {
-		if len(paths) > 1 {
-
-			dupesMap[hash] = paths
+		if len(paths) <= 1 {
+			delete(hashMap, hash)
+		} else {
 			count++
 		}
 	}
-	return dupesMap, count
+	return hashMap, count
 }
