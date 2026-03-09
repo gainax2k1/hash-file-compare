@@ -218,6 +218,10 @@ Delete file: /home/gainax2k1/Documents/workspace/hashcomparefiles/testdata/testS
 
 # Installation Instructions: 
 
+- Download compiled binaries under "Releases"
+
+  or, if you want to build your own:
+
 - Install Go, if not already installed, instuctions here:
 https://go.dev/doc/install
 
