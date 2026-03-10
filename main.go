@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math"
 	"net/url"
 	"os"
 	"os/user"
@@ -25,12 +26,18 @@ type Config struct {
 	TrashInfoPath string
 	LogPath       string
 	RemoveFlag    bool
+	Minflag       int64
+	Maxflag       int64
 }
+
+var maxFileSize int64 = math.MaxInt64
 
 func main() {
 	// Define flags and parse
 	removeFlag := flag.Bool("remove", false, "Selectively choose which duplicates to trash or delete if desired")
-	logFlag := flag.String("log", "none", "Log path, or 'default' for current directory")
+	logFlag := flag.String("log", "none", "Log filename, or 'default' for current directory log.log")
+	minFlag := flag.Int64("min", 1, "Minimum filesize to include (in bytes")
+	maxFlag := flag.Int64("max", maxFileSize, "Maximum filesize to include (in bytes)")
 
 	flag.Parse()
 
@@ -69,6 +76,8 @@ func main() {
 		TrashInfoPath: trashInfoPath,
 		LogPath:       *logFlag,
 		RemoveFlag:    *removeFlag,
+		Minflag:       *minFlag,
+		Maxflag:       *maxFlag,
 	}
 
 	// All output will be done through the logger, writing to file and/or screen based on config
@@ -110,7 +119,9 @@ func process(targets []string, config Config, logger *logger.Logger) error {
 		totalCount += count
 		// Merge dirMap into masterMap
 		for size, files := range dirMap {
-			fileSizeMap[size] = append(fileSizeMap[size], files...)
+			if size < config.Maxflag && size > config.Minflag {
+				fileSizeMap[size] = append(fileSizeMap[size], files...)
+			}
 		}
 	}
 	logger.Log("Filecount after first pass: %d", totalCount) // possibly remove
