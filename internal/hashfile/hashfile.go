@@ -17,6 +17,40 @@ import (
 	"os"
 )
 
+const PARTIALBYTELENGTH = 4096 //bytes
+
+// computeHash handles the actual hashing logic for both hash sizesS
+func computeHash(r io.Reader) (string, error) {
+	hasher := sha256.New()
+	if _, err := io.Copy(hasher, r); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(hasher.Sum(nil)), nil
+}
+
+func FullHash(filename string) (string, error) {
+	file, err := os.Open(filename)
+	if err != nil {
+		return "", err
+	}
+	defer file.Close()
+	return computeHash(file)
+}
+
+func PartialHash(filename string) (string, error) {
+	file, err := os.Open(filename)
+	if err != nil {
+		return "", err
+	}
+	defer file.Close()
+
+	// io.LimitReader ensures we only read up to the limit
+	// but computeHash will still work if the file is smaller
+	limitedReader := io.LimitReader(file, PARTIALBYTELENGTH)
+	return computeHash(limitedReader)
+}
+
+/* old hashing functions, replaced with helper design, to more uniformaly handle the file hashes.
 func FullHash(filename string) (string, error) {
 	file, err := os.Open(filename)
 	if err != nil {
@@ -41,7 +75,7 @@ func PartialHash(filename string) (string, error) {
 	}
 	defer file.Close()
 
-	buffer := make([]byte, 4096)
+	buffer := make([]byte, PARTIALBYTELENGTH)
 	n, err := file.Read(buffer)
 	if err != nil && err != io.EOF {
 		return "", err
@@ -50,3 +84,4 @@ func PartialHash(filename string) (string, error) {
 	hash := sha256.Sum256(buffer[:n])
 	return hex.EncodeToString(hash[:]), nil
 }
+*/

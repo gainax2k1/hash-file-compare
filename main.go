@@ -143,11 +143,17 @@ func process(targets []string, config Config, logger *logger.Logger) error {
 	// THIRD PASS:
 	finalDuplicates := make(map[string][]walkdir.FileInfo)
 	totalCount = 0 //reset
-	for _, files := range firstPassHashes {
+	for smallHash, files := range firstPassHashes {
 		if len(files) == 1 { // only one file with this size
 			continue // skip this file, hash to be unique
 		}
 		for _, file := range files {
+			if file.FileSize <= hashfile.PARTIALBYTELENGTH {
+
+				finalDuplicates[smallHash] = append(finalDuplicates[smallHash], file)
+				totalCount++
+				continue // use first hash, since file was already fully hashed
+			}
 			fullHash, err := hashfile.FullHash(file.FilePath)
 			if err != nil {
 				logger.Error("Error full hashing file %s: %v", file, err)
