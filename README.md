@@ -28,6 +28,11 @@ hashcomparefiles -log (directory/logfilename) ...
 - Creates a log file in the given directory/logfilename, default is current working directory.
 
 ```python
+hashcomparefiles -min (integer) -max (integer) ...
+```
+- Set minimum and/or maximum filesizes (in bytes) to process.
+
+```python
 hashcomparefiles --help
 ```
 - Shows list of available flags and descriptions
