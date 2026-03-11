@@ -13,14 +13,15 @@ type Logger struct {
 	stdLogger *log.Logger
 }
 
-func NewLogger(logPath string) (*Logger, error) {
+func NewLogger(logPath string, verbose bool) (*Logger, error) {
 	var writer io.Writer
 	var file *os.File
 	var err error
 	var cwd string
 
-	if logPath == "none" {
+	if logPath == "none" && verbose {
 		writer = os.Stdout
+
 	} else {
 		if logPath == "default" {
 			cwd, err = os.Getwd()
@@ -36,7 +37,11 @@ func NewLogger(logPath string) (*Logger, error) {
 			fmt.Fprintf(os.Stderr, "Warning: Could not open log file %s: %v. Logging to console instead.\n", logPath, err)
 			writer = os.Stdout
 		} else {
-			writer = io.MultiWriter(os.Stdout, file)
+			if verbose {
+				writer = io.MultiWriter(os.Stdout, file)
+			} else {
+				writer = file
+			}
 		}
 	}
 

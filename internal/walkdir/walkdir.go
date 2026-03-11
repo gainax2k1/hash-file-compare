@@ -21,6 +21,7 @@ func WalkGetFileSizes(dir string, logger *logger.Logger) (map[int64][]string, in
 	}
 
 	var count int
+
 	//key:filesize, value:[]filepath
 	fileSizeMap := make(map[int64][]string)
 	defer func() {
@@ -59,7 +60,7 @@ func WalkGetFileSizes(dir string, logger *logger.Logger) (map[int64][]string, in
 			if count%100 == 0 {
 				// Pulse/Spinner every 100 files to save CPU
 				// \r clears the line, then we print the spinner and count
-				fmt.Fprintf(os.Stderr, "\r %s Files processed: %d", getSpinner(count/100), count)
+				fmt.Fprintf(os.Stderr, "\r %s Files processed: %d \r", getSpinner(count/100), count)
 			}
 		}
 		return nil

@@ -28,6 +28,7 @@ type Config struct {
 	RemoveFlag    bool
 	Minflag       int64
 	Maxflag       int64
+	VerboseFlag   bool
 }
 
 var maxFileSize int64 = math.MaxInt64
@@ -38,6 +39,7 @@ func main() {
 	logFlag := flag.String("log", "none", "Log filename, or 'default' for current directory log.log")
 	minFlag := flag.Int64("min", 1, "Minimum filesize to include (in bytes")
 	maxFlag := flag.Int64("max", maxFileSize, "Maximum filesize to include (in bytes)")
+	verboseFlag := flag.Bool("v", false, "Output complete duplicate list to screen upon completion")
 
 	flag.Parse()
 
@@ -78,15 +80,18 @@ func main() {
 		RemoveFlag:    *removeFlag,
 		Minflag:       *minFlag,
 		Maxflag:       *maxFlag,
+		VerboseFlag:   *verboseFlag,
 	}
 
 	// All output will be done through the logger, writing to file and/or screen based on config
-	logger, err := logger.NewLogger(config.LogPath)
+	logger, err := logger.NewLogger(config.LogPath, config.VerboseFlag)
 	if err != nil {
 		log.Fatalf("Error creating logger: %v", err)
 	}
 
 	defer logger.Close()
+
+	logger.Log("(Start)")
 
 	err = process(targets, config, logger)
 	if err != nil {
@@ -104,12 +109,14 @@ func process(targets []string, config Config, logger *logger.Logger) error {
 	// 3. For each key, if len(value) > 1, then run full hash on each file, make map of (key=hash, value=[]filepaths)
 	// --- 2nd pass, run fullhash on remaining files
 
+	var spinnerCounter = 0
+
 	// FIRST PASS:
 	fileSizeMap := make(map[int64][]string)
 	totalCount := 0
 
 	for _, path := range targets {
-		// Run the walk for each path and merge results into masterMap
+		// Map files by filesize
 		dirMap, count, err := walkdir.WalkGetFileSizes(path, logger)
 		if err != nil {
 			logger.Error("Skipping %s due to error: %v", path, err)
@@ -117,25 +124,34 @@ func process(targets []string, config Config, logger *logger.Logger) error {
 		}
 
 		totalCount += count
-		// Merge dirMap into masterMap
+
 		for size, files := range dirMap {
 			if size < config.Maxflag && size > config.Minflag {
 				fileSizeMap[size] = append(fileSizeMap[size], files...)
 			}
 		}
 	}
-	logger.Log("Filecount after first pass: %d", totalCount) // possibly remove
+	logger.Log("Filecount after first pass: %d", totalCount)
 
 	// SECOND PASS:
 	firstPassHashes := make(map[string][]walkdir.FileInfo)
 	totalCount = 0 //reset
 
 	for filesize, files := range fileSizeMap {
-		if len(files) == 1 { // only one file with this size
+		if len(files) == 1 { // only one file with this size, so unique
 			continue // skip this file
 		}
 		// multiple files with this size, so we need to compare them
 		for _, file := range files {
+
+			spinnerCounter++
+			if spinnerCounter%100 == 0 {
+				// Pulse/Spinner every 100 files to save CPU
+				// \r clears the line, then we print the spinner and count
+				fmt.Fprintf(os.Stderr, "\r %s Files processed: %d\r", getSpinner(spinnerCounter/100), spinnerCounter)
+
+			}
+
 			partialHash, err := hashfile.PartialHash(file)
 			if err != nil {
 				logger.Error("Error partial hashing file %s: %v", file, err)
@@ -149,7 +165,8 @@ func process(targets []string, config Config, logger *logger.Logger) error {
 			totalCount++
 		}
 	}
-	logger.Log("Filecount after second pass: %d", totalCount) // possibly remove
+	logger.Log("Filecount after second pass: %d", totalCount)
+	spinnerCounter = 0
 
 	// THIRD PASS:
 	finalDuplicates := make(map[string][]walkdir.FileInfo)
@@ -159,11 +176,19 @@ func process(targets []string, config Config, logger *logger.Logger) error {
 			continue // skip this file, hash to be unique
 		}
 		for _, file := range files {
+
+			spinnerCounter++
+			if spinnerCounter%100 == 0 {
+				// Pulse/Spinner every 100 files to save CPU
+				// \r clears the line, then we print the spinner and count
+				fmt.Fprintf(os.Stderr, "\r %s Files processed: %d\r", getSpinner(spinnerCounter/100), spinnerCounter)
+			}
+
 			if file.FileSize <= hashfile.PARTIALBYTELENGTH {
 
 				finalDuplicates[smallHash] = append(finalDuplicates[smallHash], file)
 				totalCount++
-				continue // use first hash, since file was already fully hashed
+				continue // use first hash, since file was already *fully* hashed
 			}
 			fullHash, err := hashfile.FullHash(file.FilePath)
 			if err != nil {
@@ -175,11 +200,11 @@ func process(targets []string, config Config, logger *logger.Logger) error {
 		}
 	}
 
-	logger.Log("Filecount after third pass: %d", totalCount) // possibly remove
+	logger.Log("Filecount after third pass: %d", totalCount)
 
-	//shrink map to only duplicates because we don't need unique hashes
+	//shrink map
 	finalMap, totalCount := filterDuplicates(finalDuplicates)
-	logger.Log("Groups of duplicates after shrink: %d", totalCount) // possibly remove
+	logger.Log("Groups of duplicates after shrink: %d", totalCount)
 
 	if config.RemoveFlag {
 		err := removeFiles(finalMap, logger, &config)
@@ -219,9 +244,6 @@ func removeFiles(hashMap map[string][]walkdir.FileInfo, logger *logger.Logger, c
 nextHash:
 	for hash, paths := range hashMap {
 
-		//get counts for this hash
-		//pathsCount := len(paths)
-
 		subMap := map[string][]walkdir.FileInfo{
 			hash: paths,
 		}
@@ -232,7 +254,7 @@ nextHash:
 	nextDuplicate:
 		for _, file := range paths {
 
-			fmt.Printf("Delete file: %s?\n", file.FilePath)
+			fmt.Printf("Remove file: %s?\n", file.FilePath)
 
 			choice, err := getUserChoice(reader)
 			if err != nil {
@@ -264,7 +286,7 @@ nextHash:
 				continue nextHash
 
 			default:
-				return nil //? shouldn't reach this...?
+				return nil
 
 			}
 		}
@@ -399,4 +421,9 @@ func filterDuplicates(hashMap map[string][]walkdir.FileInfo) (map[string][]walkd
 		finalMap[hash] = paths
 	}
 	return finalMap, count
+}
+
+func getSpinner(count int) string {
+	frames := []string{"|", "/", "-", "\\"}
+	return frames[count%len(frames)]
 }
