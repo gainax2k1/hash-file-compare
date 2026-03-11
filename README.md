@@ -28,6 +28,11 @@ hashcomparefiles -log (directory/logfilename) ...
 - Creates a log file in the given directory/logfilename, default is current working directory.
 
 ```python
+hashcomparefiles -min (integer) -max (integer) ...
+```
+- Set minimum and/or maximum filesizes (in bytes) to process.
+
+```python
 hashcomparefiles --help
 ```
 - Shows list of available flags and descriptions
@@ -36,6 +41,28 @@ hashcomparefiles --help
 cat (filename) | hashcomparefiles -(flag)
 ```
 - Pipe in list of files and or folders to compare against each other. Flags maintain functionality.
+
+
+
+# Installation Instructions: 
+
+- Download compiled binaries under "Releases" here: 
+https://github.com/gainax2k1/hashcomparefiles/releases
+
+  or, if you want to build your own:
+
+- Install Go, if not already installed, instuctions here:
+https://go.dev/doc/install
+
+- Download repo
+- In root folder of repo, run:
+```python
+go build
+go install
+```
+
+That should be everything! Any issues with the project, feel free to reach out to me. 
+Thanks, and have a day. =^.^=
 
 # Examples:
 <h2> Small run, no flags</h2>
@@ -215,23 +242,3 @@ Delete file: /home/gainax2k1/Documents/workspace/hashcomparefiles/testdata/testS
 
 ```
 
-
-# Installation Instructions: 
-
-- Download compiled binaries under "Releases" here:
-https://github.com/gainax2k1/hashcomparefiles/releases
-
-  or, if you want to build your own:
-
-- Install Go, if not already installed, instuctions here:
-https://go.dev/doc/install
-
-- Download repo
-- In root folder of repo, run:
-```python
-go build
-go install
-```
-
-That should be everything! Any issues with the project, feel free to reach out to me. 
-Thanks, and have a day. =^.^=
