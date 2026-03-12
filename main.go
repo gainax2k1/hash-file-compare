@@ -80,6 +80,10 @@ func main() {
 		Minflag:       *minFlag,
 		Maxflag:       *maxFlag,
 	}
+	if config.RemoveFlag {
+		//Force verbose when doing removal to display submaps of duplicates
+		*verboseFlag = true
+	}
 
 	// All output will be done through the logger, writing to file and/or screen based on config
 	logger, err := logger.NewLogger(config.LogPath, *verboseFlag)
@@ -129,8 +133,8 @@ func process(targets []string, config Config, logger *logger.Logger) error {
 			}
 		}
 	}
-	logger.Log("Filecount after first pass: %d", totalCount)
-	fmt.Printf("Filecount after first pass: %d\n", totalCount)
+	logger.Log("Filecount after pass (1/3): %d", totalCount)
+	fmt.Printf("Filecount after pass (1/3): %d\n", totalCount)
 
 	// SECOND PASS:
 	firstPassHashes := make(map[string][]walkdir.FileInfo)
@@ -164,9 +168,9 @@ func process(targets []string, config Config, logger *logger.Logger) error {
 			totalCount++
 		}
 	}
-	logger.Log("Filecount after second pass: %d", totalCount)
+	logger.Log("Filecount after pass (2/3): %d", totalCount)
 
-	fmt.Printf("\nFilecount after second pass: %d\n", totalCount)
+	fmt.Printf("Filecount after pass (2/3): %d\n", totalCount)
 	spinnerCounter = 0
 
 	// THIRD PASS:
@@ -201,9 +205,9 @@ func process(targets []string, config Config, logger *logger.Logger) error {
 		}
 	}
 
-	logger.Log("Filecount after third pass: %d", totalCount)
+	logger.Log("Filecount after pass (3/3): %d", totalCount)
 
-	fmt.Printf("Filecount after third pass: %d\n", totalCount)
+	fmt.Printf("Filecount after pass (3/3): %d\n", totalCount)
 
 	//shrink map
 	finalMap, totalCount := filterDuplicates(finalDuplicates)
