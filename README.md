@@ -28,6 +28,11 @@ hashcomparefiles -log (directory/logfilename) ...
 - Creates a log file in the given directory/logfilename, default is current working directory.
 
 ```python
+hashcomparefiles -v (filename/directory)
+```
+- Verbose flag. This will output the final list of duplicates to terminal. By default (without flag), only progress will be output to terminal. Usefull if you want to log to file, but also want it output to screen.
+
+```python
 hashcomparefiles -min (integer) -max (integer) ...
 ```
 - Set minimum and/or maximum filesizes (in bytes) to process.
