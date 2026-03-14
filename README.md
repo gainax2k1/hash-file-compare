@@ -51,8 +51,17 @@ cat (filename) | hashcomparefiles -(flag)
 
 # Installation Instructions: 
 
-- Download compiled binaries under "Releases" here: 
+- Download compiled binaries manually, under "Releases" here: 
 https://github.com/gainax2k1/hashcomparefiles/releases
+-Then, from the command line, type:
+```python
+go install hashcomparefiles-(version)
+```
+
+- Or, using the Go CLI:
+```python
+go install github.com/gainax2k1/hashcomparefiles@latest
+```
 
   or, if you want to build your own:
 
@@ -68,6 +77,11 @@ go install
 
 That should be everything! Any issues with the project, feel free to reach out to me. 
 Thanks, and have a day. =^.^=
+
+## 🤝 Contributing
+### Submit a pull request
+
+If you'd like to contribute, please fork the repository and open a pull request to the `main` branch.
 
 # Examples:
 <h2> Small run, no flags</h2>
