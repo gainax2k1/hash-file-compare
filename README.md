@@ -1,13 +1,14 @@
-<h1> hashcomparefiles</h1>
-A robust CLI tool that computes file hashes to identify duplicate files regardless of filename, using SHA-256, and presents them to the user. This tool also makes it easy to selectively delete duplicate files, move them to trash, or output a list of all duplicate files with their filesize.
-It runs in a multi-pass method, minimizing disk hits and improving efficiency.
+<h1> Motivation: </h1>
+hashcomparefiles is a robust CLI tool that computes file hashes to identify duplicate files regardless of filename, using SHA-256, and presents them to the user. This tool also makes it easy to selectively delete duplicate files, move them to trash, or output a list of all duplicate files with their filesize.
+It runs in a multi-pass method, minimizing disk hits and improving efficiency. Initially, I developed this to help prune down a very messy, overly redundant NAS, where I had the same files haphazzardly thrown in a mess of folders, and needed a tool to help thin things out to help organize things.
+
+### Notes: ###
 
 * symlinks and empty files are ignored
 * sub-folders are automatically walked and included
 * compatible with piping in lists of folders/filenames for more customization
 * The filesize is included for reference, and for the remote chance of hash collision.
-
-This tool was developed and tested in a Linux environment (Pop!_OS 24.04 LTS), but I would like it to eventually fully operate in Mac and Windows environments as well. In paricular, the trashing processes in Mac and Windows is incompatible, and the input when selectively removing files currently uses TTY (which likely won't work in Windows, but is currently untested).
+- This tool was developed and tested in a Linux environment (Pop!_OS 24.04 LTS), but I would like it to eventually fully operate in Mac and Windows environments as well. In paricular, the trashing processes in Mac and Windows is incompatible, and the input when selectively removing files currently uses TTY (which likely won't work in Windows, but is currently untested).
 
 # Usage:
 
