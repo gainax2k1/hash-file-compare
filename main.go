@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gainax2k1/hashcomparefiles/internal/hashfile"
@@ -112,6 +113,7 @@ func process(targets []string, config Config, logger *logger.Logger) error {
 	// --- 2nd pass, run fullhash on remaining files
 
 	var spinnerCounter = 0
+	// Get the number of available CPU cores and set max number of threads to that for optimal performance
 
 	// FIRST PASS:
 	fileSizeMap := make(map[int64][]string)
@@ -137,7 +139,7 @@ func process(targets []string, config Config, logger *logger.Logger) error {
 	fmt.Printf("Filecount after pass (1/3): %d\n", totalCount)
 
 	// SECOND PASS:
-	firstPassHashes := make(map[string][]walkdir.FileInfo)
+	//firstPassHashes := make(map[string][]walkdir.FileInfo)
 	totalCount = 0 //reset
 
 	for filesize, files := range fileSizeMap {
@@ -155,18 +157,11 @@ func process(targets []string, config Config, logger *logger.Logger) error {
 
 			}
 
-			partialHash, err := hashfile.PartialHash(file)
-			if err != nil {
-				logger.Error("Error partial hashing file %s: %v", file, err)
-				continue // skip this file
-			}
-			var fileInfo walkdir.FileInfo
-			fileInfo.FilePath = file
-			fileInfo.FileSize = filesize
-
-			firstPassHashes[partialHash] = append(firstPassHashes[partialHash], fileInfo)
+			wg.Add(1)
+			go processPartialFile(file, filesize, logger)
 			totalCount++
 		}
+		wg.Wait() // Wait for all goroutines to finish before moving to the next filesize group
 	}
 	logger.Log("Filecount after pass (2/3): %d", totalCount)
 
@@ -174,7 +169,7 @@ func process(targets []string, config Config, logger *logger.Logger) error {
 	spinnerCounter = 0
 
 	// THIRD PASS:
-	finalDuplicates := make(map[string][]walkdir.FileInfo)
+	//finalDuplicates := make(map[string][]walkdir.FileInfo)
 	totalCount = 0 //reset
 	for smallHash, files := range firstPassHashes {
 		if len(files) == 1 { // only one file with this size
@@ -195,14 +190,13 @@ func process(targets []string, config Config, logger *logger.Logger) error {
 				totalCount++
 				continue // use first hash, since file was already *fully* hashed
 			}
-			fullHash, err := hashfile.FullHash(file.FilePath)
-			if err != nil {
-				logger.Error("Error full hashing file %s: %v", file, err)
-				continue // skip this file
-			}
-			finalDuplicates[fullHash] = append(finalDuplicates[fullHash], file)
+			wg.Add(1)
+			go processFullFile(file.FilePath, file.FileSize, logger)
+
 			totalCount++
 		}
+		wg.Wait()
+
 	}
 
 	logger.Log("Filecount after pass (3/3): %d", totalCount)
@@ -329,6 +323,7 @@ func configTrash() (string, string, error) {
 	}
 
 	// Define the trash path based on the OS
+	// currently, only Linux will use the freedesktop spec path, other OSes will use a "trash" directory in the current working directory for simplicity
 	var trashPath, trashInfoDir string
 
 	if runtime.GOOS == "linux" {
@@ -435,4 +430,40 @@ func filterDuplicates(hashMap map[string][]walkdir.FileInfo) (map[string][]walkd
 func getSpinner(count int) string {
 	frames := []string{"|", "/", "-", "\\"}
 	return frames[count%len(frames)]
+}
+
+var firstPassHashes = make(map[string][]walkdir.FileInfo)
+var mu sync.Mutex
+var wg sync.WaitGroup
+
+func processPartialFile(file string, filesize int64, logger *logger.Logger) {
+	defer wg.Done()
+	partialHash, err := hashfile.PartialHash(file)
+	if err != nil {
+		logger.Error("Error partial hashing file %s: %v", file, err)
+		return
+	}
+	var fileInfo walkdir.FileInfo
+	fileInfo.FilePath = file
+	fileInfo.FileSize = filesize
+	mu.Lock()
+	firstPassHashes[partialHash] = append(firstPassHashes[partialHash], fileInfo)
+	mu.Unlock()
+}
+
+var finalDuplicates = make(map[string][]walkdir.FileInfo)
+
+func processFullFile(file string, filesize int64, logger *logger.Logger) {
+	defer wg.Done()
+	fullHash, err := hashfile.FullHash(file)
+	if err != nil {
+		logger.Error("Error full hashing file %s: %v", file, err)
+		return
+	}
+	var fileInfo walkdir.FileInfo
+	fileInfo.FilePath = file
+	fileInfo.FileSize = filesize
+	mu.Lock()
+	finalDuplicates[fullHash] = append(finalDuplicates[fullHash], fileInfo)
+	mu.Unlock()
 }
