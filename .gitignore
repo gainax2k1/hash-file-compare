@@ -8,6 +8,11 @@
 *.so
 *.dylib
 *.deb
+*-amd64
+*-arm64
+*-linux
+*-mac*
+
 
 
 # Test binary, built with `go test -c`
@@ -38,5 +43,6 @@ testdata/
 testdataBACKUP/
 backupTestData/
 *.log
+
 log
 *.slop
