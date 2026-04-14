@@ -142,12 +142,22 @@ func process(targets []string, config Config, logger *logger.Logger) error {
 	//firstPassHashes := make(map[string][]walkdir.FileInfo)
 	totalCount = 0 //reset
 
+	sem := make(chan struct{}, 128) // limit to 64 concurrent file reads (crashed at 128)
+
 	for filesize, files := range fileSizeMap {
+
 		if len(files) == 1 { // only one file with this size, so unique
 			continue // skip this file
 		}
 		// multiple files with this size, so we need to compare them
 		for _, file := range files {
+			wg.Add(1)
+			sem <- struct{}{} // block if 128 goroutines are already running
+			go func(f string, fs int64) {
+				defer func() { <-sem }()
+				processPartialFile(f, fs, logger)
+			}(file, filesize)
+			logger.Log("Processing file: %s size: %d", file, filesize)
 
 			spinnerCounter++
 			if spinnerCounter%100 == 0 {
@@ -156,13 +166,17 @@ func process(targets []string, config Config, logger *logger.Logger) error {
 				fmt.Fprintf(os.Stderr, "\r %s Files processed: %d\r", getSpinner(spinnerCounter/100), spinnerCounter)
 
 			}
+			/*
+				logger.Log("Processing file: %s size: %d", file, files
 
-			wg.Add(1)
-			go processPartialFile(file, filesize, logger)
+					wg.Add(1)
+					go processPartialFile(file, filesize, logger)
+			*/
 			totalCount++
 		}
-		wg.Wait() // Wait for all goroutines to finish before moving to the next filesize group
+		//wg.Wait() // Wait for all goroutines to finish before moving to the next filesize group
 	}
+	wg.Wait() // Wait for all goroutines to finish before moving to the next step
 	logger.Log("Filecount after pass (2/3): %d", totalCount)
 
 	fmt.Printf("Filecount after pass (2/3): %d\n", totalCount)
@@ -176,6 +190,20 @@ func process(targets []string, config Config, logger *logger.Logger) error {
 			continue // skip this file, hash to be unique
 		}
 		for _, file := range files {
+			if file.FileSize <= hashfile.PARTIALBYTELENGTH {
+				mu.Lock()
+				finalDuplicates[smallHash] = append(finalDuplicates[smallHash], file)
+				mu.Unlock()
+				totalCount++
+				continue // use first hash, since file was already *fully* hashed
+			}
+
+			wg.Add(1)
+			sem <- struct{}{} // block if 128 goroutines are already running
+			go func(f string, fs int64) {
+				defer func() { <-sem }()
+				processFullFile(f, fs, logger)
+			}(file.FilePath, file.FileSize)
 
 			spinnerCounter++
 			if spinnerCounter%100 == 0 {
@@ -184,20 +212,16 @@ func process(targets []string, config Config, logger *logger.Logger) error {
 				fmt.Fprintf(os.Stderr, "\r %s Files processed: %d\r", getSpinner(spinnerCounter/100), spinnerCounter)
 			}
 
-			if file.FileSize <= hashfile.PARTIALBYTELENGTH {
-
-				finalDuplicates[smallHash] = append(finalDuplicates[smallHash], file)
-				totalCount++
-				continue // use first hash, since file was already *fully* hashed
-			}
-			wg.Add(1)
-			go processFullFile(file.FilePath, file.FileSize, logger)
-
+			/*
+				wg.Add(1)
+				go processFullFile(file.FilePath, file.FileSize, logger)
+			*/
 			totalCount++
 		}
-		wg.Wait()
+		//wg.Wait()
 
 	}
+	wg.Wait()
 
 	logger.Log("Filecount after pass (3/3): %d", totalCount)
 
