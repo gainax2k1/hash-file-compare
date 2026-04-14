@@ -36,7 +36,7 @@ var maxFileSize int64 = math.MaxInt64
 func main() {
 	// Define flags and parse
 	removeFlag := flag.Bool("remove", false, "Selectively choose which duplicates to trash or delete if desired")
-	logFlag := flag.String("log", "none", "Log filename, or 'default' for current directory log.log")
+	logFlag := flag.String("log", "log.log", "Log filename, or 'default' for current directory log.log")
 	minFlag := flag.Int64("min", 1, "Minimum filesize to include (in bytes")
 	maxFlag := flag.Int64("max", maxFileSize, "Maximum filesize to include (in bytes)")
 	verboseFlag := flag.Bool("v", false, "Output complete duplicate list to screen upon completion")
@@ -142,7 +142,7 @@ func process(targets []string, config Config, logger *logger.Logger) error {
 	//firstPassHashes := make(map[string][]walkdir.FileInfo)
 	totalCount = 0 //reset
 
-	sem := make(chan struct{}, 128) // limit to 64 concurrent file reads (crashed at 128)
+	sem := make(chan struct{}, 128) // limit go routines to 128 for hashing, since hashing is CPU intensive, this should optimize performance without overwhelming the system. Adjust as needed based on testing and system capabilities.
 
 	for filesize, files := range fileSizeMap {
 
